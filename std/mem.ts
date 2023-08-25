@@ -8,6 +8,10 @@ export class WasmBuffer {
   get u8a() {
     return new Uint8Array(memory.buffer, this.adr, this.len)
   }
+
+  get end() {
+    return this.adr + this.len
+  }
 }
 
 export class HeapBuffer extends WasmBuffer {
