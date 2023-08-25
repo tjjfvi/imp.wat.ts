@@ -51,11 +51,13 @@ export function codegen(wasm: Uint8Array) {
     }\n}`
     : "{}"
 
-  const exports = wasmExports.map((exp) => ({
-    name: exp.name,
-    ident: getIdent(exp.name),
-    type: convertExternType(exp),
-  }))
+  const exports = wasmExports
+    .filter((x) => !isInitFn(x))
+    .map((exp) => ({
+      name: exp.name,
+      ident: getIdent(exp.name),
+      type: convertExternType(exp),
+    }))
 
   const exportDeclarations = exports.map(({ name, ident, type }) =>
     (name === ident ? "export " : "")
@@ -69,6 +71,10 @@ export function codegen(wasm: Uint8Array) {
     } }`
     : ""
 
+  const initFnExport = wasmExports.find(isInitFn)
+
+  const initCall = initFnExport ? `;(instance.exports[""] as () => void)()` : ""
+
   const src = `
 import { decodeHex } from "https://deno.land/x/hexes@v0.1.0/decode.ts"
 ${importDeclarations.join("\n")}
@@ -78,6 +84,8 @@ const imports = ${importObject}
 const wasm = /* @__PURE__ */ decodeHex(\n"${encodeHex(wasm).replace(/.{0,64}|$/g, "\\\n$&")}",\n)
 const module = /* @__PURE__ */ new WebAssembly.Module(wasm)
 const instance = /* @__PURE__ */ new WebAssembly.Instance(module, imports)
+
+${initCall}
 
 ${exportDeclarations.join("\n")}
 
@@ -95,7 +103,8 @@ ${exportStatement}
   }
 
   function identNeedsSuffix(base: string) {
-    return usedWords.includes(base)
+    return !base
+      || usedWords.includes(base)
       || reservedWords.includes(base)
       || identBases.indexOf(base, identBases.indexOf(base) + 1) !== -1
   }
@@ -141,4 +150,8 @@ function convertValueType(wasmType: WebAssembly.ValueType) {
     case "externref":
       return "unknown"
   }
+}
+
+function isInitFn(exp: WebAssembly.ModuleExportDescriptor) {
+  return exp.name === "" && convertExternType(exp) === "() => void"
 }
