@@ -31,20 +31,22 @@ export async function build(watPath: string, check: boolean, wabtArgs: string[])
   const existing = await Deno.readTextFile(outputPath).catch(() => "")
   const clean = existing.includes(generated)
 
+  const byteCount = colors.gray(`(${wasm.length} bytes)`)
+
   if (check) {
     if (clean) {
-      console.log(tag("clean", colors.bgBrightGreen), outputPath)
+      console.log(tag("clean", colors.bgBrightGreen), outputPath, byteCount)
     } else {
       console.log(tag("dirty", colors.bgBrightRed), outputPath)
     }
     return clean
   } else {
     if (clean) {
-      console.log(tag("clean", colors.bgBrightBlack), outputPath)
+      console.log(tag("clean", colors.bgBrightBlack), outputPath, byteCount)
     } else {
       const file = `// ${generated}\n\n${code}`
       await Deno.writeTextFile(outputPath, file)
-      console.log(tag("built", colors.bgBlue), outputPath)
+      console.log(tag("built", colors.bgBlue), outputPath, byteCount)
     }
     return true
   }
