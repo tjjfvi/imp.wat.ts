@@ -46,7 +46,7 @@ export function codegen(wasm: Uint8Array) {
         const entries = parts.map(({ name, ident, type }) =>
           `${stringifyName(name)}: ${ident} satisfies ${type}`
         )
-        return `  ${JSON.stringify(url)}: { ${entries.join(", ")} }`
+        return `  ${JSON.stringify(url)}: { ${entries.join(", ")} },`
       }).join("\n")
     }\n}`
     : "{}"
