@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "lint": {
+    "files": {
+      "exclude": ["target"],
+      "include": ["."]
+    },
+    "rules": {
+      "exclude": [
+        "ban-types",
+        "no-empty",
+        "no-explicit-any",
+        "no-namespace",
+        "require-await",
+        "no-extra-semi"
+      ],
+      "tags": ["recommended"]
+    }
+  },
+  "include": ["."],
+  "tasks": {
+    "run": "deno run --v8-flags=--experimental-wasm-type-reflection -A",
+    "impwat": "deno task run main.ts",
+    "build": "deno task impwat std/**/*.wat --wabt-arg=--enable-exceptions"
+  },
+  "lock": false
+}
