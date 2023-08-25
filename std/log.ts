@@ -1,5 +1,5 @@
 import { encodeHex } from "https://deno.land/x/hexes@v0.1.0/encode.ts"
-import { memory } from "./mem.wat.ts"
+import { memory } from "./memory/mod.ts"
 
 export function log_brk() {
   console.log()

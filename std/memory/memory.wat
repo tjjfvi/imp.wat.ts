@@ -3,8 +3,8 @@
   ;; Initial heap size: 16 pages (1 MiB)
   ;; Max heap size: 1024 pages (64 MiB)
 
-  (memory 32 1040)
-  (export "memory" (memory 0))
+  (import "./_memory.ts" "memory" (memory 32 1040))
+  (import "./_memory.ts" "on_grow" (func $on_grow))
 
   (global $stack_top (mut i32) (i32.const 0))
   (export "stack_top" (global $stack_top))
@@ -104,6 +104,7 @@
     (if (i32.eq (local.get $offset) (i32.const 0x30)) (then ;; if this is a 1 MiB block
       ;; grow the memory by 16 pages, storing the old page count into `$adr`
       (local.tee $adr (memory.grow (i32.const 16)))
+      (call $on_grow)
       (if (i32.eq (i32.const -1)) (then (throw $heap_grow_fail)))
       (return (i32.shl (local.get $adr) (i32.const 16))) ;; multiply by page size = 2^16 bytes
     ))
