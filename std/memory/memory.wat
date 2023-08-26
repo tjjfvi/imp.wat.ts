@@ -6,7 +6,7 @@
   (import "./_memory.ts" "memory" (memory 32 1040))
   (import "./_memory.ts" "on_grow" (func $on_grow))
 
-  (global $stack_top (mut i32) (i32.const 0))
+  (global $stack_top (mut i32) (i32.const 8))
   (export "stack_top" (global $stack_top))
 
   (tag $stack_overflow)
@@ -14,12 +14,17 @@
 
   (func (export "stack_push") (param $size i32) (result i32)
     (global.get $stack_top)
-    (global.set $stack_top (local.tee $size (i32.add (global.get $stack_top) (local.get $size))))
+    (global.set $stack_top (local.tee $size (i32.add (global.get $stack_top) (call $stack_align (local.get $size)))))
     (if (i32.and (local.get $size) (i32.const 0xfff00000)) (then (throw $stack_overflow)))
   )
 
   (func (export "stack_pop") (param $size i32)
-    (global.set $stack_top (i32.sub (global.get $stack_top) (local.get $size)))
+    (global.set $stack_top (i32.sub (global.get $stack_top) (call $stack_align (local.get $size))))
+  )
+
+  ;; Rounds `size` up to a multiple of 8, for alignment.
+  (func $stack_align (param $size i32) (result i32)
+    (i32.sub (i32.const 0) (i32.and (i32.sub (i32.const 0) (local.get $size)) (i32.const -8)))
   )
 
   ;; A WASM page is 64 KiB (0x01_00_00 bytes).
