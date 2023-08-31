@@ -26,7 +26,7 @@
   "tasks": {
     "run": "deno run --v8-flags=--experimental-wasm-type-reflection -A",
     "impwat": "deno task run main.ts",
-    "build": "deno task impwat std/**/*.wat --wabt-arg=--enable-exceptions"
+    "build": "deno task impwat 'std/**/*.wat' --wabt-arg=--enable-exceptions"
   },
   "lock": false
 }
