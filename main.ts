@@ -4,7 +4,7 @@ import { relative } from "https://deno.land/std@0.200.0/path/relative.ts"
 import { build } from "./build/build.ts"
 
 const args = parse(Deno.args, {
-  boolean: ["check"],
+  boolean: ["dynamic", "check"],
   collect: ["wabt-arg"],
   string: ["wabt-arg"],
 })
@@ -19,7 +19,14 @@ await Promise.all(args._.map(async (glob) => {
 
 files.sort()
 
-const results = await Promise.all(files.map((file) => build(file, args.check, args["wabt-arg"])))
+const results = await Promise.all(files.map((file) =>
+  build({
+    watPath: file,
+    wabtArgs: args["wabt-arg"],
+    dynamic: args.dynamic,
+    check: args.check,
+  })
+))
 
 if (results.some((ok) => !ok)) {
   Deno.exit(1)

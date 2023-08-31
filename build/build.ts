@@ -2,7 +2,14 @@ import * as colors from "https://deno.land/std@0.200.0/fmt/colors.ts"
 import { encodeHex } from "https://deno.land/x/hexes@v0.1.0/encode.ts"
 import { codegen } from "./codegen.ts"
 
-export async function build(watPath: string, check: boolean, wabtArgs: string[]): Promise<boolean> {
+interface BuildProps {
+  watPath: string
+  wabtArgs: string[]
+  dynamic: boolean
+  check: boolean
+}
+
+export async function build({ watPath, wabtArgs, dynamic, check }: BuildProps): Promise<boolean> {
   const wasmCmd = await new Deno.Command("wat2wasm", {
     args: [watPath, ...wabtArgs, "--output=-"],
     stdout: "piped",
@@ -20,7 +27,7 @@ export async function build(watPath: string, check: boolean, wabtArgs: string[])
   }
 
   const wasm = wasmCmd.stdout
-  const code = codegen(wasm)
+  const code = codegen(wasm, dynamic)
 
   const hash = encodeHex(
     new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code))),

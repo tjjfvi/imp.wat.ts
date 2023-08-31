@@ -4,7 +4,7 @@ import { identBase, reservedWords, stringifyName, stringifyProperty } from "./ut
 // @deno-types="./wasm.d.ts"
 import { WebAssembly } from "./wasm.js"
 
-export function codegen(wasm: Uint8Array) {
+export function codegen(wasm: Uint8Array, dynamic: boolean) {
   const module = new WebAssembly.Module(wasm)
 
   // Identifiers used in the generated code:
@@ -14,6 +14,17 @@ export function codegen(wasm: Uint8Array) {
     "module",
     "instance",
     "imports",
+    "Imports",
+    "exports",
+    "Exports",
+    "WebAssembly",
+    "sourceHex",
+    "instantiate",
+    "never",
+    "number",
+    "bigint",
+    "Function",
+    "unknown",
   ]
 
   const wasmImports = WebAssembly.Module.imports(module)
@@ -33,20 +44,29 @@ export function codegen(wasm: Uint8Array) {
     array.push({ ident, name: imp.name, type: convertExternType(imp) })
   }
 
-  const importDeclarations = [...importModules].map(([url, parts]) => {
+  const importDeclarations = dynamic ? [] : [...importModules].map(([url, parts]) => {
     const specifiers = parts.map(({ name, ident }) =>
       name === ident ? ident : `${stringifyName(name)} as ${ident}`
     )
     return `import { ${specifiers.join(", ")} } from "${url}"`
   })
 
+  const importType = importModules.size
+    ? `{\n${
+      [...importModules].map(([url, parts]) => {
+        const entries = parts.map(({ name, type }) => `    ${stringifyName(name)}: ${type}`)
+        return `  ${stringifyName(url)}: {\n${entries.join("\n")}\n  }`
+      }).join("\n")
+    }\n}`
+    : "{}"
+
   const importObject = importModules.size
     ? `{\n${
       [...importModules].map(([url, parts]) => {
-        const entries = parts.map(({ name, ident, type }) =>
-          `${stringifyName(name)}: ${ident} satisfies ${type}`
+        const entries = parts.map(({ name, ident }) =>
+          `    ${name === ident ? ident : `${stringifyName(name)}: ${ident}`},`
         )
-        return `  ${JSON.stringify(url)}: { ${entries.join(", ")} },`
+        return `  ${JSON.stringify(url)}: {\n${entries.join("\n")}\n  },`
       }).join("\n")
     }\n}`
     : "{}"
@@ -59,9 +79,17 @@ export function codegen(wasm: Uint8Array) {
       type: convertExternType(exp),
     }))
 
-  const exportDeclarations = exports.map(({ name, ident, type }) =>
+  const exportType = exports.length
+    ? `{\n${
+      exports.map(({ name, type }) => {
+        return `  ${stringifyName(name)}: ${type}`
+      }).join("\n")
+    }\n}`
+    : "{}"
+
+  const exportDeclarations = exports.map(({ name, ident }) =>
     (name === ident ? "export " : "")
-    + `const ${ident} = /* @__PURE__ */ instance.exports${stringifyProperty(name)} as ${type}`
+    + `const ${ident} = /* @__PURE__ */ exports${stringifyProperty(name)}`
   )
 
   const exportRenames = exports.filter(({ name, ident }) => name !== ident)
@@ -73,24 +101,41 @@ export function codegen(wasm: Uint8Array) {
 
   const initFnExport = wasmExports.find(isInitFn)
 
-  const initCall = initFnExport ? `;(instance.exports[""] as () => void)()` : ""
+  const exportTooling = dynamic ? "export " : ""
+
+  const initCall = initFnExport ? `exports[""]()` : ""
+
+  const instantiation = `
+const imports: Imports = ${importObject}
+const exports = /* @__PURE__ */ instantiate(imports)
+
+${[...exportDeclarations, exportStatement].join("\n") + "\n"}
+`
 
   const src = `
-import { decodeHex } from "https://deno.land/x/hexes@v0.1.0/decode.ts"
 ${importDeclarations.join("\n")}
 
-const imports = ${importObject}
+import { decodeHex } from "https://deno.land/x/hexes@v0.1.0/decode.ts"
 
-const wasm = /* @__PURE__ */ decodeHex(\n"${encodeHex(wasm).replace(/.{0,64}|$/g, "\\\n$&")}",\n)
-const module = /* @__PURE__ */ new WebAssembly.Module(wasm)
-const instance = /* @__PURE__ */ new WebAssembly.Instance(module, imports)
+${exportTooling}type Imports = ${importType}
 
-${initCall}
+${exportTooling}type Exports = ${exportType}
 
-${exportDeclarations.join("\n")}
+const sourceHex = "${encodeHex(wasm).replace(/.{0,64}|$/g, "\\\n$&")}"
+let module: WebAssembly.Module
 
-${exportStatement}
-`.trimStart().replace(/\n\n\n+/g, "\n\n").replace(/\n*$/, "\n")
+${dynamic ? "" : instantiation}
+
+${exportTooling}function instantiate(imports: Imports): Exports {
+  module ??= new WebAssembly.Module(decodeHex(sourceHex))
+  const instance = new WebAssembly.Instance(module, imports)
+  const exports = instance.exports as Exports
+
+  ${initCall}
+
+  return exports
+}
+`.trimStart().replace(/(?:\n[^\S\n]*){2,}\n/g, "\n\n").replace(/\n*$/, "\n")
 
   return src
 
