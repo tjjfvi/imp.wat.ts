@@ -103,7 +103,7 @@ export function codegen(wasm: Uint8Array, dynamic: boolean) {
 
   const exportTooling = dynamic ? "export " : ""
 
-  const initCall = initFnExport ? `exports[""]()` : ""
+  const initCall = initFnExport ? `(exports as any)[""]()` : ""
 
   const instantiation = `
 const imports: Imports = ${importObject}
